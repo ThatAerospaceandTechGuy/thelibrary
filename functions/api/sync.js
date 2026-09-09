@@ -202,8 +202,3 @@ export async function onRequestPost({ request, env }) {
     return json({ message: err?.message || "Sync failed." }, 502);
   }
 }
-
-export async function onRequest({ request }) {
-  if (request.method === "POST") return undefined;
-  return new Response("Method Not Allowed", { status: 405, headers: { Allow: "POST" } });
-}
