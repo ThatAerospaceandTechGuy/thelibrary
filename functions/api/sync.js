@@ -5,6 +5,8 @@
  * needed when textbooks are added or removed.
  */
 
+const DEFAULT_DRIVE_FOLDER_ID = "1-P9CM54-123Iq0T3xX6lhLAzs9QiuMFE";
+
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
@@ -69,10 +71,7 @@ async function getAccessToken(saKey) {
 
 function getServiceAccount(env) {
   if (env.GDRIVE_CLIENT_EMAIL && env.GDRIVE_PRIVATE_KEY) {
-    return {
-      client_email: env.GDRIVE_CLIENT_EMAIL,
-      private_key: env.GDRIVE_PRIVATE_KEY,
-    };
+    return { client_email: env.GDRIVE_CLIENT_EMAIL, private_key: env.GDRIVE_PRIVATE_KEY };
   }
   if (!env.GDRIVE_SA_KEY) throw new Error("Server is missing Google service account configuration.");
   try {
@@ -91,6 +90,7 @@ async function listPdfs(token, folderId) {
       fields: "nextPageToken, files(id, name, size, modifiedTime)",
       pageSize: "1000",
       orderBy: "name",
+      spaces: "drive",
       supportsAllDrives: "true",
       includeItemsFromAllDrives: "true",
     });
@@ -107,9 +107,9 @@ async function listPdfs(token, folderId) {
 }
 
 export async function getBooks(env) {
-  if (!env.DRIVE_FOLDER_ID) throw new Error("Server is missing DRIVE_FOLDER_ID.");
+  const folderId = env.DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
   const token = await getAccessToken(getServiceAccount(env));
-  const files = await listPdfs(token, env.DRIVE_FOLDER_ID);
+  const files = await listPdfs(token, folderId);
   return files.map((f) => ({
     name: f.name,
     size: f.size ? Number(f.size) : null,
@@ -133,6 +133,5 @@ export async function onRequest({ request, env }) {
       return json({ message: err?.message || "Sync failed." }, 502);
     }
   }
-
   return json({ message: "Not found." }, 404);
 }
