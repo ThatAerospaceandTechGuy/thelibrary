@@ -1,8 +1,7 @@
 /**
  * Cloudflare Pages Function — /api/sync
- * Reads PDF textbooks from Google Drive. The frontend remains static;
- * the live book list is served by /api/books, so no deployment is
- * needed when textbooks are added or removed.
+ * Reads all files from Google Drive. The frontend remains static;
+ * the live file list is served by /api/books.
  */
 
 const DEFAULT_DRIVE_FOLDER_ID = "1-P9CM54-123Iq0T3xX6lhLAzs9QiuMFE";
@@ -22,11 +21,7 @@ function b64url(bytes) {
 const b64urlText = (str) => b64url(new TextEncoder().encode(str));
 
 function pemToArrayBuffer(pem) {
-  const body = pem
-    .replace(/\\n/g, "\n")
-    .replace(/-----BEGIN [^-]+-----/, "")
-    .replace(/-----END [^-]+-----/, "")
-    .replace(/\s+/g, "");
+  const body = pem.replace(/\\n/g, "\n").replace(/-----BEGIN [^-]+-----/, "").replace(/-----END [^-]+-----/, "").replace(/\s+/g, "");
   const bin = atob(body);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
@@ -36,77 +31,40 @@ function pemToArrayBuffer(pem) {
 async function getAccessToken(saKey) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
-  const claims = {
-    iss: saKey.client_email,
-    scope: "https://www.googleapis.com/auth/drive.readonly",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  };
+  const claims = { iss: saKey.client_email, scope: "https://www.googleapis.com/auth/drive.readonly", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 };
   const unsigned = `${b64urlText(JSON.stringify(header))}.${b64urlText(JSON.stringify(claims))}`;
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemToArrayBuffer(saKey.private_key),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
+  const key = await crypto.subtle.importKey("pkcs8", pemToArrayBuffer(saKey.private_key), { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
   const assertion = `${unsigned}.${b64url(sig)}`;
-
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion,
-    }),
-  });
+  const res = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }) });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.access_token) {
-    throw new Error(`Google auth failed: ${data.error_description || data.error || res.status}`);
-  }
+  if (!res.ok || !data.access_token) throw new Error(`Google auth failed: ${data.error_description || data.error || res.status}`);
   return data.access_token;
 }
 
 function getServiceAccount(env) {
-  if (env.GDRIVE_CLIENT_EMAIL && env.GDRIVE_PRIVATE_KEY) {
-    return { client_email: env.GDRIVE_CLIENT_EMAIL, private_key: env.GDRIVE_PRIVATE_KEY };
-  }
+  if (env.GDRIVE_CLIENT_EMAIL && env.GDRIVE_PRIVATE_KEY) return { client_email: env.GDRIVE_CLIENT_EMAIL, private_key: env.GDRIVE_PRIVATE_KEY };
   if (!env.GDRIVE_SA_KEY) throw new Error("Server is missing Google service account configuration.");
-  try {
-    return JSON.parse(env.GDRIVE_SA_KEY);
-  } catch (_) {
-    throw new Error("GDRIVE_SA_KEY is not valid JSON. Add GDRIVE_CLIENT_EMAIL and GDRIVE_PRIVATE_KEY, or replace GDRIVE_SA_KEY with the full service-account JSON.");
-  }
+  try { return JSON.parse(env.GDRIVE_SA_KEY); } catch (_) { throw new Error("GDRIVE_SA_KEY is not valid JSON."); }
 }
 
 async function getFolder(token, folderId) {
-  const params = new URLSearchParams({
-    fields: "id,name,mimeType,trashed",
-    supportsAllDrives: "true",
-  });
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const params = new URLSearchParams({ fields: "id,name,mimeType,trashed", supportsAllDrives: "true" });
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(`Drive folder access failed: ${data?.error?.message || res.status}. Make sure this exact folder is shared with the Google service-account email configured in Cloudflare.`);
-  }
+  if (!res.ok) throw new Error(`Drive folder access failed: ${data?.error?.message || res.status}. Make sure this exact folder is shared with the Google service-account email configured in Cloudflare.`);
   if (data.trashed) throw new Error("The configured Google Drive folder is in the trash.");
-  if (data.mimeType !== "application/vnd.google-apps.folder") {
-    throw new Error("The configured DRIVE_FOLDER_ID is not a Google Drive folder.");
-  }
+  if (data.mimeType !== "application/vnd.google-apps.folder") throw new Error("The configured DRIVE_FOLDER_ID is not a Google Drive folder.");
   return data;
 }
 
-async function listPdfs(token, folderId) {
+async function listFiles(token, folderId) {
   const files = [];
   let pageToken;
   do {
     const params = new URLSearchParams({
-      q: `'${folderId}' in parents and mimeType = 'application/pdf' and trashed = false`,
-      fields: "nextPageToken, files(id, name, size, modifiedTime)",
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: "nextPageToken, files(id, name, size, modifiedTime, mimeType, webViewLink)",
       pageSize: "1000",
       orderBy: "name",
       spaces: "drive",
@@ -114,9 +72,7 @@ async function listPdfs(token, folderId) {
       includeItemsFromAllDrives: "true",
     });
     if (pageToken) params.set("pageToken", pageToken);
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(`Drive list failed: ${data?.error?.message || res.status}`);
     files.push(...(data.files || []));
@@ -129,14 +85,15 @@ export async function getBooks(env) {
   const folderId = env.DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
   const token = await getAccessToken(getServiceAccount(env));
   await getFolder(token, folderId);
-  const files = await listPdfs(token, folderId);
+  const files = await listFiles(token, folderId);
   return files.map((f) => ({
     id: f.id,
     name: f.name,
     size: f.size ? Number(f.size) : null,
     dateModified: f.modifiedTime || null,
+    mimeType: f.mimeType || "application/octet-stream",
     downloadUrl: `https://drive.google.com/uc?export=download&id=${f.id}`,
-    viewUrl: `https://drive.google.com/file/d/${f.id}/view`,
+    viewUrl: f.webViewLink || `https://drive.google.com/file/d/${f.id}/view`,
   })).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
 
@@ -147,7 +104,6 @@ export async function onRequest({ request, env }) {
     const { user, pass } = body || {};
     if (!env.ADMIN_USER || !env.ADMIN_PASSWORD) return json({ message: "Server is missing admin credentials configuration." }, 500);
     if (user !== env.ADMIN_USER || pass !== env.ADMIN_PASSWORD) return json({ message: "Invalid credentials." }, 401);
-
     try {
       const books = await getBooks(env);
       return json({ count: books.length, books, message: "Drive synced successfully. No deployment is required." });
