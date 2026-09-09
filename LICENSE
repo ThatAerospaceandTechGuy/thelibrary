@@ -2,37 +2,49 @@ VIEW-ONLY PROPRIETARY LICENSE
 
 Copyright (c) 2026 Albin Prince. All rights reserved.
 
-1. Permission to View
+IMPORTANT: This repository is NOT open source and is NOT licensed for reuse.
 
-Permission is granted to access and view this repository and its contents for personal, non-commercial, informational, and educational purposes only.
+1. LIMITED VIEWING PERMISSION
 
-2. Restrictions
+You are permitted to access and view this public repository and its contents solely for personal, non-commercial, informational, and educational purposes.
+
+Viewing the repository does not grant any ownership rights or any licence to use, copy, modify, distribute, publish, or otherwise exploit its contents.
+
+2. PROHIBITED USES
 
 Without prior written permission from the copyright holder, you may NOT:
 
-- Copy, reproduce, or duplicate any part of this repository or its contents.
-- Modify, adapt, translate, or create derivative works from the repository or its contents.
-- Redistribute, republish, upload, mirror, or otherwise make the repository or its contents available elsewhere.
-- Sell, sublicense, rent, lease, or commercially exploit the repository or its contents.
-- Use the source code or other repository contents in another project, product, service, or website.
-- Remove or alter copyright, licence, attribution, or ownership notices.
+- Copy, reproduce, download for reuse, or duplicate the source code or other repository contents.
+- Modify, adapt, translate, reverse engineer, or create derivative works from the repository or its contents.
+- Redistribute, republish, mirror, upload, or otherwise provide copies of the repository or its contents to others.
+- Use any part of the repository in another project, website, application, product, or service.
+- Sell, license, sublicense, rent, lease, or commercially exploit the repository or its contents.
+- Use the repository or its contents for commercial purposes.
+- Remove, obscure, or alter copyright, licence, attribution, or ownership notices.
+- Claim ownership of, or imply authorship of, the repository or its contents.
 
-3. GitHub Access
+3. PUBLIC GITHUB REPOSITORY
 
-The repository may be publicly viewable on GitHub. Public availability does not grant permission to copy, modify, redistribute, or commercially use the contents beyond the limited viewing permission stated above. GitHub's own platform functionality and terms may permit certain actions, such as viewing or forking public repositories; nothing in this licence grants additional rights to the repository contents.
+This repository is publicly viewable on GitHub. Public visibility does not mean that the contents are open source or free to reuse.
 
-4. Ownership
+GitHub may provide platform features such as viewing, caching, or forking public repositories under GitHub's own terms. Any such platform functionality does not grant you a separate copyright licence to reuse the repository contents outside those GitHub platform permissions.
 
-All rights, title, and interest in the repository and its contents remain with the copyright holder unless expressly stated otherwise.
+4. OWNERSHIP
 
-5. Third-Party Materials
+All copyright and other intellectual property rights in the repository and its original contents remain with the copyright holder.
 
-Any third-party libraries, assets, trademarks, or other materials included in this repository remain subject to their respective owners' licences and terms. This licence does not claim ownership of third-party materials.
+5. THIRD-PARTY CONTENT
 
-6. No Warranty
+Third-party libraries, assets, trademarks, fonts, or other materials included in the repository remain subject to their respective owners' licences and terms. This licence applies only to material owned by the copyright holder.
 
-The repository is provided "as is", without warranties of any kind, express or implied.
+6. NO WARRANTY
 
-7. Permission Requests
+The repository is provided "as is", without warranties or guarantees of any kind, to the maximum extent permitted by applicable law.
 
-For permission to copy, modify, redistribute, publish, or commercially use any part of this repository, contact the copyright holder and obtain written permission before doing so.
+7. PERMISSION
+
+Any use that is prohibited by this licence requires prior written permission from the copyright holder. Permission may be granted or refused at the copyright holder's sole discretion.
+
+8. CONTACT
+
+For permission to copy, modify, redistribute, publish, or commercially use any part of this repository, contact the copyright holder before doing so.
