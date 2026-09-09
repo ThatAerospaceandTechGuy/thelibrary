@@ -4,37 +4,39 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Stacks — shared textbook shelf</title>
-<meta name="description" content="The Stacks is a simple shared shelf for course textbooks: browse the list and download the PDF you need." />
+<meta name="description" content="The Stacks is a simple shared shelf for course textbooks: browse the list and open or download PDFs." />
 <meta property="og:title" content="The Stacks — shared textbook shelf" />
-<meta property="og:description" content="Browse and download shared course textbooks in one clean list." />
+<meta property="og:description" content="Browse and open shared course textbooks in one clean library." />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;750&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <header class="site-header">
-  <div class="wrap">
+  <div class="wrap header-inner">
     <a class="brand" href="index.html">The <span>Stacks</span></a>
     <nav class="nav" aria-label="Main">
       <a href="index.html" aria-current="page">Home</a>
       <a href="textbooks.html">Textbooks</a>
+      <a href="admin.html">Admin</a>
     </nav>
   </div>
 </header>
 <main>
   <div class="wrap">
     <div class="page-head">
+      <div class="eyebrow">SHARED LIBRARY</div>
       <h1>A shared shelf for our textbooks.</h1>
-      <p class="lead">Every PDF on the shelf lives in one Drive folder and shows up here as a plain, searchable list — name, size, when it changed, and a download link. Nothing else.</p>
-      <a class="btn" href="textbooks.html">Browse textbooks</a>
+      <p class="lead">Every PDF on the shelf lives in one Drive folder and appears here as a clean, searchable collection. Open books in your browser or download them for offline use.</p>
+      <a class="btn btn-view" href="textbooks.html">Browse textbooks</a>
     </div>
     <div class="card-grid">
-      <div class="card"><h2>One list</h2><p>All books in a single table, sorted alphabetically, no accounts needed to read.</p></div>
-      <div class="card"><h2>Direct downloads</h2><p>Each row links straight to the file, so you can grab a PDF and go.</p></div>
-      <div class="card"><h2>Static</h2><p>No build tools or server required. The site is plain HTML, CSS and JSON.</p></div>
+      <div class="card"><h2>One collection</h2><p>All books in one organised library, with the latest files pulled from the shared Drive folder.</p></div>
+      <div class="card"><h2>Read or download</h2><p>Open any PDF directly in your browser or download a copy when you need it offline.</p></div>
+      <div class="card"><h2>Simple & static</h2><p>No unnecessary frontend framework. The interface stays fast with plain HTML, CSS and JavaScript.</p></div>
     </div>
   </div>
 </main>
