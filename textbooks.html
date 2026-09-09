@@ -94,15 +94,6 @@ function formatDate(iso) {
   return isNaN(d) ? "—" : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function badgeType(mime) {
-  if (mime === "application/pdf") return "PDF";
-  if (mime?.startsWith("image/")) return "IMG";
-  if (mime?.startsWith("video/")) return "VID";
-  if (mime?.startsWith("audio/")) return "AUD";
-  if (mime?.includes("google-apps")) return "DOC";
-  return "FILE";
-}
-
 const eyeIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>`;
 const downloadIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`;
 
@@ -120,8 +111,10 @@ fetch("/api/books", { cache: "no-store" })
 
       const name = document.createElement("td");
       name.className = "name";
-      name.innerHTML = `<div class="book-title"><span class="pdf-badge">${badgeType(b.mimeType)}</span><span></span></div>`;
-      name.querySelector("span:last-child").textContent = b.name || "Untitled";
+      const title = document.createElement("div");
+      title.className = "book-title";
+      title.textContent = b.name || "Untitled";
+      name.appendChild(title);
 
       const type = document.createElement("td");
       type.className = "file-type";
