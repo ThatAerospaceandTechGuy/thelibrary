@@ -1,14 +1,14 @@
 /**
- * Cloudflare Pages Function — POST /api/sync
- * Syncs PDF textbooks from Google Drive into textbooks.json by committing
- * the rebuilt JSON to GitHub. The GitHub commit then redeploys the site.
+ * Cloudflare Pages Function — /api/sync and /api/books
+ * Reads PDF textbooks from Google Drive. The frontend remains static;
+ * the live book list is served through this function, so no deployment is
+ * needed when textbooks are added or removed.
  */
 
-const json = (body, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+const json = (body, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+});
 
 function b64url(bytes) {
   let bin = "";
@@ -19,15 +19,9 @@ function b64url(bytes) {
 
 const b64urlText = (str) => b64url(new TextEncoder().encode(str));
 
-function b64encodeUtf8(str) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
 function pemToArrayBuffer(pem) {
   const body = pem
+    .replace(/\\n/g, "\n")
     .replace(/-----BEGIN [^-]+-----/, "")
     .replace(/-----END [^-]+-----/, "")
     .replace(/\s+/g, "");
@@ -48,7 +42,6 @@ async function getAccessToken(saKey) {
     exp: now + 3600,
   };
   const unsigned = `${b64urlText(JSON.stringify(header))}.${b64urlText(JSON.stringify(claims))}`;
-
   const key = await crypto.subtle.importKey(
     "pkcs8",
     pemToArrayBuffer(saKey.private_key),
@@ -56,11 +49,7 @@ async function getAccessToken(saKey) {
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    new TextEncoder().encode(unsigned),
-  );
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
   const assertion = `${unsigned}.${b64url(sig)}`;
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -76,6 +65,21 @@ async function getAccessToken(saKey) {
     throw new Error(`Google auth failed: ${data.error_description || data.error || res.status}`);
   }
   return data.access_token;
+}
+
+function getServiceAccount(env) {
+  if (env.GDRIVE_CLIENT_EMAIL && env.GDRIVE_PRIVATE_KEY) {
+    return {
+      client_email: env.GDRIVE_CLIENT_EMAIL,
+      private_key: env.GDRIVE_PRIVATE_KEY,
+    };
+  }
+  if (!env.GDRIVE_SA_KEY) throw new Error("Server is missing Google service account configuration.");
+  try {
+    return JSON.parse(env.GDRIVE_SA_KEY);
+  } catch (_) {
+    throw new Error("GDRIVE_SA_KEY is not valid JSON. Add GDRIVE_CLIENT_EMAIL and GDRIVE_PRIVATE_KEY, or replace GDRIVE_SA_KEY with the full service-account JSON.");
+  }
 }
 
 async function listPdfs(token, folderId) {
@@ -102,87 +106,44 @@ async function listPdfs(token, folderId) {
   return files;
 }
 
-async function commitJson(env, contentString) {
-  const repo = env.GITHUB_REPO;
-  const branch = env.GITHUB_BRANCH || "main";
-  const path = "textbooks.json";
-  const api = `https://api.github.com/repos/${repo}/contents/${path}`;
-  const headers = {
-    Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-    Accept: "application/vnd.github+json",
-    "User-Agent": "the-stacks-sync",
-    "Content-Type": "application/json",
-  };
-
-  let sha;
-  const current = await fetch(`${api}?ref=${encodeURIComponent(branch)}`, { headers });
-  if (current.ok) {
-    const meta = await current.json().catch(() => ({}));
-    sha = meta.sha;
-  } else if (current.status !== 404) {
-    const text = await current.text();
-    throw new Error(`GitHub read failed (${current.status}): ${text.slice(0, 200)}`);
-  }
-
-  const put = await fetch(api, {
-    method: "PUT",
-    headers,
-    body: JSON.stringify({
-      message: "chore: sync textbooks.json from Drive",
-      content: b64encodeUtf8(contentString),
-      branch,
-      ...(sha ? { sha } : {}),
-    }),
-  });
-  if (!put.ok) {
-    const text = await put.text();
-    throw new Error(`GitHub commit failed (${put.status}): ${text.slice(0, 200)}`);
-  }
+async function getBooks(env) {
+  if (!env.DRIVE_FOLDER_ID) throw new Error("Server is missing DRIVE_FOLDER_ID.");
+  const token = await getAccessToken(getServiceAccount(env));
+  const files = await listPdfs(token, env.DRIVE_FOLDER_ID);
+  return files.map((f) => ({
+    name: f.name,
+    size: f.size ? Number(f.size) : null,
+    dateModified: f.modifiedTime || null,
+    downloadUrl: `https://drive.google.com/uc?export=download&id=${f.id}`,
+  })).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
 
-export async function onRequestPost({ request, env }) {
-  let body;
-  try {
-    body = await request.json();
-  } catch (_) {
-    return json({ message: "Invalid request body." }, 400);
-  }
+export async function onRequest({ request, env }) {
+  const url = new URL(request.url);
 
-  const { user, pass } = body || {};
-  if (!env.ADMIN_USER || !env.ADMIN_PASSWORD) {
-    return json({ message: "Server is missing admin credentials configuration." }, 500);
-  }
-  if (user !== env.ADMIN_USER || pass !== env.ADMIN_PASSWORD) {
-    return json({ message: "Invalid credentials." }, 401);
-  }
-
-  for (const name of ["GDRIVE_SA_KEY", "DRIVE_FOLDER_ID", "GITHUB_TOKEN", "GITHUB_REPO"]) {
-    if (!env[name]) return json({ message: `Server is missing ${name}.` }, 500);
-  }
-
-  try {
-    let saKey;
+  if (url.pathname.endsWith("/books") && request.method === "GET") {
     try {
-      saKey = JSON.parse(env.GDRIVE_SA_KEY);
-    } catch (_) {
-      return json({ message: "GDRIVE_SA_KEY is not valid JSON." }, 500);
+      const books = await getBooks(env);
+      return json({ lastSynced: new Date().toISOString(), books });
+    } catch (err) {
+      return json({ message: err?.message || "Could not load textbooks." }, 502);
     }
-
-    const token = await getAccessToken(saKey);
-    const files = await listPdfs(token, env.DRIVE_FOLDER_ID);
-    const books = files
-      .map((f) => ({
-        name: f.name,
-        size: f.size ? Number(f.size) : null,
-        dateModified: f.modifiedTime || null,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${f.id}`,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-
-    const payload = { lastSynced: new Date().toISOString(), books };
-    await commitJson(env, JSON.stringify(payload, null, 2) + "\n");
-    return json({ count: books.length });
-  } catch (err) {
-    return json({ message: err?.message || "Sync failed." }, 502);
   }
+
+  if (url.pathname.endsWith("/sync") && request.method === "POST") {
+    let body;
+    try { body = await request.json(); } catch (_) { return json({ message: "Invalid request body." }, 400); }
+    const { user, pass } = body || {};
+    if (!env.ADMIN_USER || !env.ADMIN_PASSWORD) return json({ message: "Server is missing admin credentials configuration." }, 500);
+    if (user !== env.ADMIN_USER || pass !== env.ADMIN_PASSWORD) return json({ message: "Invalid credentials." }, 401);
+
+    try {
+      const books = await getBooks(env);
+      return json({ count: books.length, books, message: "Drive synced successfully. No deployment is required." });
+    } catch (err) {
+      return json({ message: err?.message || "Sync failed." }, 502);
+    }
+  }
+
+  return json({ message: "Not found." }, 404);
 }
