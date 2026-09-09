@@ -81,6 +81,25 @@ function getServiceAccount(env) {
   }
 }
 
+async function getFolder(token, folderId) {
+  const params = new URLSearchParams({
+    fields: "id,name,mimeType,trashed",
+    supportsAllDrives: "true",
+  });
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`Drive folder access failed: ${data?.error?.message || res.status}. Make sure this exact folder is shared with the Google service-account email configured in Cloudflare.`);
+  }
+  if (data.trashed) throw new Error("The configured Google Drive folder is in the trash.");
+  if (data.mimeType !== "application/vnd.google-apps.folder") {
+    throw new Error("The configured DRIVE_FOLDER_ID is not a Google Drive folder.");
+  }
+  return data;
+}
+
 async function listPdfs(token, folderId) {
   const files = [];
   let pageToken;
@@ -109,6 +128,7 @@ async function listPdfs(token, folderId) {
 export async function getBooks(env) {
   const folderId = env.DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
   const token = await getAccessToken(getServiceAccount(env));
+  const folder = await getFolder(token, folderId);
   const files = await listPdfs(token, folderId);
   return files.map((f) => ({
     name: f.name,
