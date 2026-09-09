@@ -1,7 +1,7 @@
 /**
- * Cloudflare Pages Function — /api/sync and /api/books
+ * Cloudflare Pages Function — /api/sync
  * Reads PDF textbooks from Google Drive. The frontend remains static;
- * the live book list is served through this function, so no deployment is
+ * the live book list is served by /api/books, so no deployment is
  * needed when textbooks are added or removed.
  */
 
@@ -106,7 +106,7 @@ async function listPdfs(token, folderId) {
   return files;
 }
 
-async function getBooks(env) {
+export async function getBooks(env) {
   if (!env.DRIVE_FOLDER_ID) throw new Error("Server is missing DRIVE_FOLDER_ID.");
   const token = await getAccessToken(getServiceAccount(env));
   const files = await listPdfs(token, env.DRIVE_FOLDER_ID);
@@ -119,18 +119,7 @@ async function getBooks(env) {
 }
 
 export async function onRequest({ request, env }) {
-  const url = new URL(request.url);
-
-  if (url.pathname.endsWith("/books") && request.method === "GET") {
-    try {
-      const books = await getBooks(env);
-      return json({ lastSynced: new Date().toISOString(), books });
-    } catch (err) {
-      return json({ message: err?.message || "Could not load textbooks." }, 502);
-    }
-  }
-
-  if (url.pathname.endsWith("/sync") && request.method === "POST") {
+  if (new URL(request.url).pathname.endsWith("/sync") && request.method === "POST") {
     let body;
     try { body = await request.json(); } catch (_) { return json({ message: "Invalid request body." }, 400); }
     const { user, pass } = body || {};
