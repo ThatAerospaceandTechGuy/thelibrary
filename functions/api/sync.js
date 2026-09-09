@@ -128,13 +128,15 @@ async function listPdfs(token, folderId) {
 export async function getBooks(env) {
   const folderId = env.DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
   const token = await getAccessToken(getServiceAccount(env));
-  const folder = await getFolder(token, folderId);
+  await getFolder(token, folderId);
   const files = await listPdfs(token, folderId);
   return files.map((f) => ({
+    id: f.id,
     name: f.name,
     size: f.size ? Number(f.size) : null,
     dateModified: f.modifiedTime || null,
     downloadUrl: `https://drive.google.com/uc?export=download&id=${f.id}`,
+    viewUrl: `https://drive.google.com/file/d/${f.id}/view`,
   })).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
 
