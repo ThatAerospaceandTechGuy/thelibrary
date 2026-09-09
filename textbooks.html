@@ -7,12 +7,12 @@
 <meta name="description" content="Browse every textbook on the shelf." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <header class="site-header">
-  <div class="wrap">
+  <div class="wrap header-inner">
     <a class="brand" href="index.html">The <span>Stacks</span></a>
     <nav class="nav" aria-label="Main">
       <a href="index.html">Home</a>
@@ -25,16 +25,27 @@
 <main>
   <div class="wrap">
     <div class="page-head">
+      <div class="eyebrow">LIBRARY</div>
       <h1>Textbooks</h1>
-      <p class="lead">Everything currently in the shared Drive folder, sorted by name.</p>
+      <p class="lead">Browse the collection and open any PDF directly in your browser, or download it for offline use.</p>
     </div>
 
     <div class="table-card">
-      <div id="state" class="state">Loading textbooks…</div>
-      <table id="table" hidden>
-        <thead><tr><th>Name</th><th>Size</th><th class="date">Date modified</th><th>Download</th></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
+      <div class="table-scroll">
+        <div id="state" class="state">Loading textbooks…</div>
+        <table id="table" hidden>
+          <thead>
+            <tr>
+              <th class="book-col">Name</th>
+              <th>Size</th>
+              <th class="date">Date modified</th>
+              <th class="action-col view-head">View</th>
+              <th class="action-col download-head">Download</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
     </div>
     <p class="meta" id="meta"></p>
   </div>
@@ -61,7 +72,8 @@ function formatDate(iso) {
   return isNaN(d) ? "—" : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-const icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`;
+const eyeIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>`;
+const downloadIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`;
 
 fetch("/api/books", { cache: "no-store" })
   .then(r => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
@@ -71,16 +83,50 @@ fetch("/api/books", { cache: "no-store" })
       stateEl.textContent = "No textbooks found in the shared Drive folder.";
       return;
     }
+
     for (const b of books) {
       const tr = document.createElement("tr");
-      const name = document.createElement("td"); name.className = "name"; name.textContent = b.name || "Untitled";
-      const size = document.createElement("td"); size.className = "num"; size.textContent = formatSize(b.size);
-      const date = document.createElement("td"); date.className = "date"; date.textContent = formatDate(b.dateModified);
-      const dl = document.createElement("td"); dl.className = "dl";
-      const a = document.createElement("a"); a.className = "btn btn-ghost"; a.href = b.downloadUrl || "#"; a.rel = "noopener"; a.innerHTML = icon + "<span>Download</span>"; a.setAttribute("aria-label", `Download ${b.name || "textbook"}`);
-      dl.appendChild(a); tr.append(name, size, date, dl); rowsEl.appendChild(tr);
+
+      const name = document.createElement("td");
+      name.className = "name";
+      name.innerHTML = `<div class="book-title"><span class="pdf-badge">PDF</span><span></span></div>`;
+      name.querySelector("span:last-child").textContent = b.name || "Untitled";
+
+      const size = document.createElement("td");
+      size.className = "num";
+      size.textContent = formatSize(b.size);
+
+      const date = document.createElement("td");
+      date.className = "date";
+      date.textContent = formatDate(b.dateModified);
+
+      const view = document.createElement("td");
+      view.className = "action-cell";
+      const viewLink = document.createElement("a");
+      viewLink.className = "btn btn-view";
+      viewLink.href = b.viewUrl || "#";
+      viewLink.target = "_blank";
+      viewLink.rel = "noopener noreferrer";
+      viewLink.innerHTML = eyeIcon + "<span>View</span>";
+      viewLink.setAttribute("aria-label", `View ${b.name || "textbook"}`);
+      view.appendChild(viewLink);
+
+      const download = document.createElement("td");
+      download.className = "action-cell";
+      const downloadLink = document.createElement("a");
+      downloadLink.className = "btn btn-download";
+      downloadLink.href = b.downloadUrl || "#";
+      downloadLink.rel = "noopener noreferrer";
+      downloadLink.innerHTML = downloadIcon + "<span>Download</span>";
+      downloadLink.setAttribute("aria-label", `Download ${b.name || "textbook"}`);
+      download.appendChild(downloadLink);
+
+      tr.append(name, size, date, view, download);
+      rowsEl.appendChild(tr);
     }
-    stateEl.hidden = true; tableEl.hidden = false;
+
+    stateEl.hidden = true;
+    tableEl.hidden = false;
     metaEl.textContent = `${books.length} book${books.length === 1 ? "" : "s"} · live from Google Drive`;
   })
   .catch(err => {
