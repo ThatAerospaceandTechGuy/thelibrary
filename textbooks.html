@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Textbooks — The Stacks</title>
+<meta name="description" content="Browse every textbook on the shelf: name, file size, last modified date, and a direct download link." />
+<meta property="og:title" content="Textbooks — The Stacks" />
+<meta property="og:description" content="Browse every textbook on the shelf and download the PDF you need." />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">The <span>Stacks</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="index.html">Home</a>
+      <a href="textbooks.html" aria-current="page">Textbooks</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="page-head">
+      <h1>Textbooks</h1>
+      <p class="lead">Everything currently on the shelf, sorted by name.</p>
+    </div>
+
+    <div class="table-card">
+      <div id="state" class="state">Loading textbooks…</div>
+      <table id="table" hidden>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Size</th>
+            <th scope="col" class="date">Date modified</th>
+            <th scope="col"><span class="sr-only">Download</span>Download</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="meta" id="meta"></p>
+  </div>
+</main>
+
+<script>
+  const stateEl = document.getElementById("state");
+  const tableEl = document.getElementById("table");
+  const rowsEl = document.getElementById("rows");
+  const metaEl = document.getElementById("meta");
+
+  function formatSize(bytes) {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n <= 0) return "—";
+    const units = ["B", "KB", "MB", "GB"];
+    let i = 0, v = n;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d)) return "—";
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+
+  const icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`;
+
+  fetch("textbooks.json", { cache: "no-store" })
+    .then((r) => {
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    })
+    .then((data) => {
+      const books = Array.isArray(data.books) ? data.books.slice() : [];
+      if (!books.length) {
+        stateEl.textContent = "No textbooks on the shelf yet. Once an admin runs a sync, they'll appear here.";
+        return;
+      }
+      books.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }));
+      for (const b of books) {
+        const tr = document.createElement("tr");
+
+        const name = document.createElement("td");
+        name.className = "name";
+        name.textContent = b.name || "Untitled";
+
+        const size = document.createElement("td");
+        size.className = "num";
+        size.textContent = formatSize(b.size);
+
+        const date = document.createElement("td");
+        date.className = "date";
+        date.textContent = formatDate(b.dateModified);
+
+        const dl = document.createElement("td");
+        dl.className = "dl";
+        const a = document.createElement("a");
+        a.className = "btn btn-ghost";
+        a.href = b.downloadUrl || "#";
+        a.rel = "noopener";
+        a.innerHTML = icon + "<span>Download</span>";
+        a.setAttribute("aria-label", `Download ${b.name || "textbook"}`);
+        dl.appendChild(a);
+
+        tr.append(name, size, date, dl);
+        rowsEl.appendChild(tr);
+      }
+      stateEl.hidden = true;
+      tableEl.hidden = false;
+      if (data.lastSynced) {
+        metaEl.textContent = `${books.length} book${books.length === 1 ? "" : "s"} · last synced ${formatDate(data.lastSynced)}`;
+      }
+    })
+    .catch(() => {
+      stateEl.textContent = "Couldn't load the textbook list. Please refresh and try again.";
+    });
+</script>
+</body>
+</html>
