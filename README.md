@@ -36,7 +36,6 @@ No Vite, React, or frontend build system is required.
 .
 ├── index.html
 ├── textbooks.html
-├── admin.html
 ├── style.css
 └── functions/
     └── api/
